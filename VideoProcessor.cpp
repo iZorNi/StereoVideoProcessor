@@ -30,7 +30,7 @@ VideoProcessor::VideoProcessor(int width, int height, transformParameters leftPa
 		generateMapLeft();
 		generateMapRight();
 		generateRotationMatrix();
-		tonemap = cv::createTonemapDurand(2.2f);
+		tonemap = cv::createTonemap(2.2f);
 		int w,h;
 		std::pair<int,int> tl = Geometry::getNewRect(0,0, size.height, size.width, leftParam.rotationAngle, rightParam.rotationAngle, h, w);
 		newSize = cv::Size(w,h);
@@ -136,12 +136,12 @@ std::vector<void*> VideoProcessor::processFrames(void* leftFrame, void* rightFra
 	//right frame
 	srcRightFrame.upload(cv::Mat(size, CV_16UC3, rightFrame));
 	process(Right);
-	//tonemap->process(dstLeftFrame16, dstLeftFrame8);
+	tonemap->process(dstLeftFrame16, dstLeftFrame8);
 	//dstLeftFrame16.convertTo(dstLeftFrame8, CV_8UC3);
 	cropFrame(Left);
 	res.push_back(dstLeftFrame8.data);
 	stream.waitForCompletion();
-	//tonemap->process(dstRightFrame16, dstRightFrame8);
+	tonemap->process(dstRightFrame16, dstRightFrame8);
 	//dstRightFrame16.convertTo(dstRightFrame8, CV_8UC3);
 	cropFrame(Right);
 	res.push_back(dstRightFrame8.data);
@@ -159,20 +159,19 @@ void VideoProcessor::process(int side)
 	case Left:
 		{
 			srcLeftFrame.convertTo(tmpGpuLeftFrame, CV_8UC3,stream);
-			tmpGpuLeftFrame.download(dstLeftFrame8,stream);
-			//srcLeftFrame.download(dstLeftFrame16,stream);
+			//tmpGpuLeftFrame.download(dstLeftFrame8,stream);
+			srcLeftFrame.download(dstLeftFrame16,stream);
 			break;
 		}
 	case Right:
 		{
 			srcRightFrame.convertTo(tmpGpuRightFrame, CV_8UC3,stream);
-			tmpGpuRightFrame.download(dstRightFrame8,stream);
-			//srcRightFrame.download(dstRightFrame16,stream);
+			//tmpGpuRightFrame.download(dstRightFrame8,stream);
+			srcRightFrame.download(dstRightFrame16,stream);
 			break;
 		}
 	}
 	return;
-	//create ToneMap
 	//tonemap->process(srcLeftFrame, dstLeftFrame);
 	//tonemap->process(srcRightFrame, dstRightFrame);
 	
@@ -218,7 +217,6 @@ void VideoProcessor::rotateAndShift(int side)
 		}
 	}
 
-	//cv::cuda::rotate(dst,src,size, 0,params.shiftX, params.shiftY, 0, stream);
 	return;
 }
 
@@ -229,13 +227,11 @@ void VideoProcessor::cropFrame(int side)
 	case Left:
 		{
 			dstLeftFrame8= dstLeftFrame8(cv::Range(top, top+newSize.height), cv::Range(left, left+newSize.width));
-			//cv::imwrite("1_cropped.JPG", dstLeftFrame8(cv::Range(top, top+newSize.height), cv::Range(left, left+newSize.width)));
 			break;
 		}
 	case Right:
 		{
 			dstRightFrame8= dstRightFrame8(cv::Range(top, top+newSize.height), cv::Range(left, left+newSize.width));
-			//cv::imwrite("2_cropped.JPG",dstRightFrame8(cv::Range(top, top+newSize.height), cv::Range(left, left+newSize.width)));
 			break;
 		}
 	}
